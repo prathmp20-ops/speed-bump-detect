@@ -26,11 +26,7 @@ const SpeedBumpMap = ({ bumps, currentSpeed, isMonitoring }: SpeedBumpMapProps) 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    const token = import.meta.env.VITE_MAPBOX_TOKEN;
-    if (!token) {
-      console.error('Mapbox token not configured');
-      return;
-    }
+    const token = 'pk.eyJ1Ijoic3VzaG1lZXRzYWx2ZSIsImEiOiJjbWkwMWVkOGYwcHhkMmtzZjVzZWJtM2dnIn0.v4zwSrmMewXMGvLJI5-_aw';
 
     try {
       mapboxgl.accessToken = token;
@@ -126,7 +122,7 @@ const SpeedBumpMap = ({ bumps, currentSpeed, isMonitoring }: SpeedBumpMapProps) 
     };
   }, [isMonitoring]);
 
-  const hasToken = !!import.meta.env.VITE_MAPBOX_TOKEN;
+  const hasToken = true;
 
   if (!hasToken) {
     return (
