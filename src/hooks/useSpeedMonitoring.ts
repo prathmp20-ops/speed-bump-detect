@@ -87,10 +87,23 @@ export const useSpeedMonitoring = () => {
   const checkForSpeedBump = useCallback((location: LocationData) => {
     const speedKmh = (location.speed || 0) * 3.6; // Convert m/s to km/h
     
+    console.log('Speed check:', {
+      rawSpeed: location.speed,
+      speedKmh: speedKmh.toFixed(1),
+      previousSpeed: previousSpeed.toFixed(1),
+      latitude: location.latitude,
+      longitude: location.longitude
+    });
+    
     setCurrentSpeed(speedKmh);
 
     // Detection criteria: previous speed > 30 km/h and current speed 10-20 km/h
     if (previousSpeed > 30 && speedKmh >= 10 && speedKmh <= 20) {
+      console.log('🚨 Speed bump detected!', {
+        previousSpeed: previousSpeed.toFixed(1),
+        currentSpeed: speedKmh.toFixed(1)
+      });
+      
       saveBumpToDatabase(location.latitude, location.longitude, speedKmh, location.timestamp);
 
       // Show notification
@@ -217,6 +230,13 @@ export const useSpeedMonitoring = () => {
     speed: number,
     timestamp: number
   ) => {
+    console.log('💾 Saving speed bump to database...', {
+      latitude,
+      longitude,
+      speed: speed.toFixed(1),
+      timestamp: new Date(timestamp).toISOString()
+    });
+    
     try {
       const { data, error } = await supabase
         .from('speed_bumps')
@@ -230,11 +250,12 @@ export const useSpeedMonitoring = () => {
         .single();
 
       if (error) {
-        console.error('Error saving speed bump:', error);
+        console.error('❌ Error saving speed bump:', error);
         return;
       }
 
       if (data) {
+        console.log('✅ Speed bump saved successfully:', data);
         const newBump: SpeedBump = data;
 
         setSpeedBumps((prev) => {
@@ -245,7 +266,7 @@ export const useSpeedMonitoring = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to save speed bump:', error);
+      console.error('❌ Failed to save speed bump:', error);
     }
   };
 
