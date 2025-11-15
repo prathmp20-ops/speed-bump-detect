@@ -98,19 +98,26 @@ export const useSpeedMonitoring = () => {
     
     setCurrentSpeed(speedKmh);
 
-    // Detection: significant speed drop (>15 km/h) when going over 20 km/h
+    // More forgiving detection for real-world mobile use:
+    // - Speed drop of >10 km/h when going over 15 km/h
+    // - Or sudden drop to very low speed (<8 km/h) from moderate speed (>15 km/h)
     const speedDrop = previousSpeed - speedKmh;
-    const shouldDetect = previousSpeed > 20 && speedDrop > 15;
+    const shouldDetect = 
+      (previousSpeed > 15 && speedDrop > 10) ||
+      (previousSpeed > 15 && speedKmh < 8);
     
     console.log('Detection check:', {
       shouldDetect,
-      reason: shouldDetect 
-        ? '✅ Conditions met' 
-        : `❌ Need: prevSpeed > 20 (${previousSpeed > 20}) AND drop > 15 (${speedDrop > 15})`
+      conditions: {
+        'Previous speed > 15': previousSpeed > 15,
+        'Speed drop > 10': speedDrop > 10,
+        'Current speed < 8': speedKmh < 8,
+      },
+      reason: shouldDetect ? '✅ Speed bump detected!' : '❌ Conditions not met'
     });
     
     if (shouldDetect) {
-      console.log('🚨 Speed bump detected!', {
+      console.log('🚨 LOGGING SPEED BUMP!', {
         previousSpeed: previousSpeed.toFixed(1),
         currentSpeed: speedKmh.toFixed(1),
         speedDrop: speedDrop.toFixed(1)
