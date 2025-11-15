@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Dark theme optimized for driving */
+    --background: 220 15% 12%;
+    --foreground: 0 0% 98%;
+
+    --card: 220 15% 15%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 220 15% 15%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Amber/Orange - traffic alert color */
+    --primary: 38 92% 50%;
+    --primary-foreground: 220 15% 12%;
+
+    /* Asphalt gray */
+    --secondary: 220 10% 25%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 220 10% 20%;
+    --muted-foreground: 0 0% 65%;
+
+    /* Green for active state */
+    --accent: 142 71% 45%;
+    --accent-foreground: 220 15% 12%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 10% 25%;
+    --input: 220 10% 25%;
+    --ring: 38 92% 50%;
+
+    --radius: 0.75rem;
+
+    /* Animation variables */
+    --pulse-speed: 2s;
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 220 15% 12%;
+    --foreground: 0 0% 98%;
+
+    --card: 220 15% 15%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 220 15% 15%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 38 92% 50%;
+    --primary-foreground: 220 15% 12%;
+
+    --secondary: 220 10% 25%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 220 10% 20%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 142 71% 45%;
+    --accent-foreground: 220 15% 12%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 10% 25%;
+    --input: 220 10% 25%;
+    --ring: 38 92% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
