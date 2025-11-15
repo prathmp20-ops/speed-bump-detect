@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Geolocation } from '@capacitor/geolocation';
+import { Geolocation }T from '@capacitor/geolocation';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SpeedBump {
@@ -9,6 +9,7 @@ export interface SpeedBump {
   speed: number;
   detected_at: string;
   created_at: string;
+  accuracy?: number; // Optional: for older entries
 }
 
 interface LocationData {
@@ -16,7 +17,37 @@ interface LocationData {
   latitude: number;
   longitude: number;
   timestamp: number;
-  accuracy: number;
+  accuracy: number; // <-- Added accuracy
+}
+
+/**
+ * Calculates the distance between two GPS coordinates in meters.
+ * Uses the Haversine formula.
+ * @param lat1 Latitude of the first point
+ * @param lon1 Longitude of the first point
+ * @param lat2 Latitude of the second point
+ * @param lon2 Longitude of the second point
+ * @returns Distance in meters
+ */
+function getDistanceInMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371e3; // Radius of the Earth in meters
+  const φ1 = (lat1 * Math.PI) / 180; // φ, λ in radians
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const d = R * c; // Distance in meters
+  return d;
 }
 
 export const useSpeedMonitoring = () => {
@@ -25,6 +56,10 @@ export const useSpeedMonitoring = () => {
   const [speedBumps, setSpeedBumps] = useState<SpeedBump[]>([]);
   const [previousSpeed, setPreviousSpeed] = useState(0);
   const [watchId, setWatchId] = useState<string | null>(null);
+
+  // --- New State for Distance Calculation ---
+  const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
+  const [distanceToNextBump, setDistanceToNextBump] = useState<number | null>(null);
 
   // Load speed bumps from database on mount
   useEffect(() => {
@@ -56,6 +91,31 @@ export const useSpeedMonitoring = () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // --- New Effect for Proximity Calculation ---
+  // Recalculate nearest bump distance when location or bump list changes
+  useEffect(() => {
+    if (!currentLocation || speedBumps.length === 0) {
+      setDistanceToNextBump(null);
+      return;
+    }
+
+    let minDistance = Infinity;
+    const { latitude: lat1, longitude: lon1 } = currentLocation;
+
+    for (const bump of speedBumps) {
+      const { latitude: lat2, longitude: lon2 } = bump;
+      const distance = getDistanceInMeters(lat1, lon1, lat2, lon2);
+      if (distance < minDistance) {
+        minDistance = distance;
+      }
+    }
+    
+    // Set the distance (e.g., in meters)
+    setDistanceToNextBump(minDistance);
+
+  }, [currentLocation, speedBumps]); // Dependencies: run when these change
+
 
   const loadSpeedBumps = async () => {
     try {
@@ -94,7 +154,8 @@ export const useSpeedMonitoring = () => {
       previousSpeed: previousSpeed.toFixed(1),
       speedDrop: (previousSpeed - speedKmh).toFixed(1),
       latitude: location.latitude,
-      longitude: location.longitude
+      longitude: location.longitude,
+      accuracy: location.accuracy.toFixed(1)
     });
     
     setCurrentSpeed(speedKmh);
@@ -124,7 +185,13 @@ export const useSpeedMonitoring = () => {
         speedDrop: speedDrop.toFixed(1)
       });
       
-      saveBumpToDatabase(location.latitude, location.longitude, speedKmh, location.timestamp);
+      saveBumpToDatabase(
+        location.latitude, 
+        location.longitude, 
+        speedKmh, 
+        location.timestamp,
+        location.accuracy // <-- Pass accuracy
+      );
 
       // Show notification
       if ('vibrate' in navigator) {
@@ -162,12 +229,16 @@ export const useSpeedMonitoring = () => {
             }
 
             if (position) {
-              checkForSpeedBump({
+              // --- Updated to set location state ---
+              const locationData: LocationData = {
                 speed: position.coords.speed || 0,
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
                 timestamp: position.timestamp,
-              });
+                accuracy: position.coords.accuracy || 0, // <-- Get accuracy
+              };
+              setCurrentLocation(locationData); // <-- Set current location
+              checkForSpeedBump(locationData); // <-- Pass to detection
             }
           }
         );
@@ -183,12 +254,16 @@ export const useSpeedMonitoring = () => {
 
         const id = navigator.geolocation.watchPosition(
           (position) => {
-            checkForSpeedBump({
+            // --- Updated to set location state ---
+            const locationData: LocationData = {
               speed: position.coords.speed || 0,
               latitude: position.coords.latitude,
               longitude: position.coords.longitude,
               timestamp: position.timestamp,
-            });
+              accuracy: position.coords.accuracy || 0, // <-- Get accuracy
+            };
+            setCurrentLocation(locationData); // <-- Set current location
+            checkForSpeedBump(locationData); // <-- Pass to detection
           },
           (error) => {
             console.error('Geolocation error:', error);
@@ -242,19 +317,23 @@ export const useSpeedMonitoring = () => {
     setIsMonitoring(false);
     setCurrentSpeed(0);
     setPreviousSpeed(0);
+    setCurrentLocation(null); // <-- Clear location on stop
+    setDistanceToNextBump(null); // <-- Clear distance on stop
   }, [watchId]);
 
   const saveBumpToDatabase = async (
     latitude: number,
     longitude: number,
     speed: number,
-    timestamp: number
+    timestamp: number,
+    accuracy: number // <-- Added accuracy
   ) => {
     console.log('💾 Saving speed bump to database...', {
       latitude,
       longitude,
       speed: speed.toFixed(1),
-      timestamp: new Date(timestamp).toISOString()
+      timestamp: new Date(timestamp).toISOString(),
+      accuracy: accuracy.toFixed(1) // <-- Log accuracy
     });
     
     try {
@@ -265,6 +344,7 @@ export const useSpeedMonitoring = () => {
           longitude,
           speed,
           detected_at: new Date(timestamp).toISOString(),
+          accuracy, // <-- Save accuracy
         })
         .select()
         .single();
@@ -316,9 +396,9 @@ export const useSpeedMonitoring = () => {
     isMonitoring,
     currentSpeed,
     speedBumps,
+    distanceToNextBump, // <-- Added for your UI
     startMonitoring,
     stopMonitoring,
     clearHistory,
     loadSpeedBumps,
   };
-};
