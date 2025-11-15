@@ -91,17 +91,29 @@ export const useSpeedMonitoring = () => {
       rawSpeed: location.speed,
       speedKmh: speedKmh.toFixed(1),
       previousSpeed: previousSpeed.toFixed(1),
+      speedDrop: (previousSpeed - speedKmh).toFixed(1),
       latitude: location.latitude,
       longitude: location.longitude
     });
     
     setCurrentSpeed(speedKmh);
 
-    // Detection criteria: previous speed > 30 km/h and current speed 10-20 km/h
-    if (previousSpeed > 30 && speedKmh >= 10 && speedKmh <= 20) {
+    // Detection: significant speed drop (>15 km/h) when going over 20 km/h
+    const speedDrop = previousSpeed - speedKmh;
+    const shouldDetect = previousSpeed > 20 && speedDrop > 15;
+    
+    console.log('Detection check:', {
+      shouldDetect,
+      reason: shouldDetect 
+        ? '✅ Conditions met' 
+        : `❌ Need: prevSpeed > 20 (${previousSpeed > 20}) AND drop > 15 (${speedDrop > 15})`
+    });
+    
+    if (shouldDetect) {
       console.log('🚨 Speed bump detected!', {
         previousSpeed: previousSpeed.toFixed(1),
-        currentSpeed: speedKmh.toFixed(1)
+        currentSpeed: speedKmh.toFixed(1),
+        speedDrop: speedDrop.toFixed(1)
       });
       
       saveBumpToDatabase(location.latitude, location.longitude, speedKmh, location.timestamp);
