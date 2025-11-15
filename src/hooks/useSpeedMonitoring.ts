@@ -16,6 +16,7 @@ interface LocationData {
   latitude: number;
   longitude: number;
   timestamp: number;
+  accuracy: number;
 }
 
 export const useSpeedMonitoring = () => {
