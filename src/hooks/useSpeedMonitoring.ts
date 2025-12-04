@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Geolocation } from '@capacitor/geolocation';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -54,8 +54,10 @@ export const useSpeedMonitoring = () => {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [currentSpeed, setCurrentSpeed] = useState(0);
   const [speedBumps, setSpeedBumps] = useState<SpeedBump[]>([]);
-  const [previousSpeed, setPreviousSpeed] = useState(0);
   const [watchId, setWatchId] = useState<string | null>(null);
+  
+  // Use ref to track previous speed to avoid stale closure issues
+  const previousSpeedRef = useRef(0);
 
   // --- New State for Distance Calculation ---
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
@@ -147,12 +149,13 @@ export const useSpeedMonitoring = () => {
   // Detection logic
   const checkForSpeedBump = useCallback((location: LocationData) => {
     const speedKmh = (location.speed || 0) * 3.6; // Convert m/s to km/h
+    const prevSpeed = previousSpeedRef.current;
     
     console.log('Speed check:', {
       rawSpeed: location.speed,
       speedKmh: speedKmh.toFixed(1),
-      previousSpeed: previousSpeed.toFixed(1),
-      speedDrop: (previousSpeed - speedKmh).toFixed(1),
+      previousSpeed: prevSpeed.toFixed(1),
+      speedDrop: (prevSpeed - speedKmh).toFixed(1),
       latitude: location.latitude,
       longitude: location.longitude,
       accuracy: location.accuracy.toFixed(1)
@@ -161,13 +164,13 @@ export const useSpeedMonitoring = () => {
     setCurrentSpeed(speedKmh);
 
     // Detection: speed drop of >2 km/h when going above 3 km/h
-    const speedDrop = previousSpeed - speedKmh;
-    const shouldDetect = previousSpeed > 3 && speedDrop > 2;
+    const speedDrop = prevSpeed - speedKmh;
+    const shouldDetect = prevSpeed > 3 && speedDrop > 2;
     
     console.log('Detection check:', {
       shouldDetect,
       conditions: {
-        'Previous speed > 3': previousSpeed > 3,
+        'Previous speed > 3': prevSpeed > 3,
         'Speed drop > 2': speedDrop > 2,
       },
       reason: shouldDetect ? '✅ Speed bump detected!' : '❌ Conditions not met'
@@ -175,7 +178,7 @@ export const useSpeedMonitoring = () => {
     
     if (shouldDetect) {
       console.log('🚨 LOGGING SPEED BUMP!', {
-        previousSpeed: previousSpeed.toFixed(1),
+        previousSpeed: prevSpeed.toFixed(1),
         currentSpeed: speedKmh.toFixed(1),
         speedDrop: speedDrop.toFixed(1)
       });
@@ -185,7 +188,7 @@ export const useSpeedMonitoring = () => {
         location.longitude, 
         speedKmh, 
         location.timestamp,
-        location.accuracy // <-- Pass accuracy
+        location.accuracy
       );
 
       // Show notification
@@ -194,8 +197,9 @@ export const useSpeedMonitoring = () => {
       }
     }
 
-    setPreviousSpeed(speedKmh);
-  }, [previousSpeed]);
+    // Update ref for next check
+    previousSpeedRef.current = speedKmh;
+  }, []);
 
   const startMonitoring = async () => {
     try {
@@ -311,9 +315,9 @@ export const useSpeedMonitoring = () => {
     }
     setIsMonitoring(false);
     setCurrentSpeed(0);
-    setPreviousSpeed(0);
-    setCurrentLocation(null); // <-- Clear location on stop
-    setDistanceToNextBump(null); // <-- Clear distance on stop
+    previousSpeedRef.current = 0;
+    setCurrentLocation(null);
+    setDistanceToNextBump(null);
   }, [watchId]);
 
   const saveBumpToDatabase = async (
