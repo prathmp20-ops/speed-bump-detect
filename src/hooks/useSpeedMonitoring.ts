@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Geolocation }T from '@capacitor/geolocation';
+import { Geolocation } from '@capacitor/geolocation';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SpeedBump {
@@ -396,9 +396,10 @@ export const useSpeedMonitoring = () => {
     isMonitoring,
     currentSpeed,
     speedBumps,
-    distanceToNextBump, // <-- Added for your UI
+    distanceToNextBump,
     startMonitoring,
     stopMonitoring,
     clearHistory,
     loadSpeedBumps,
   };
+};
